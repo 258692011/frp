@@ -30,22 +30,42 @@ const (
 	NotFound = `<!DOCTYPE html>
 <html>
 <head>
-<title>Not Found</title>
+<meta charset="utf-8">
+<title>404 Not Found</title>
 <style>
-    body {
-        width: 35em;
-        margin: 0 auto;
-        font-family: Tahoma, Verdana, Arial, sans-serif;
-    }
+.container {
+width: 60%;
+margin: 10% auto 0;
+background-color: #f0f0f0;
+padding: 2% 5%;
+border-radius: 10px
+}
+p {
+line-height: .5
+}
+ul {
+padding-left: 20px
+}
+ul li {
+line-height: 1.8
+}
+a {
+color: #20a53a
+}
 </style>
 </head>
 <body>
-<h1>The page you requested was not found.</h1>
-<p>Sorry, the page you are looking for is currently unavailable.<br/>
-Please try again later.</p>
-<p>The server is powered by <a href="https://github.com/fatedier/frp">frp</a>.</p>
-<p><em>Faithfully yours, frp.</em></p>
+<div class="container">
+<h1>哎呀，页面找不到啦！</h1>
+<p>可能发生了以下情况：</p>
+<ul>
+<li>网络连接不太好，刷新一下试试。</li>
+<li>页面可能已经被移动或删除了。</li>
+<li>当前访问量过大，服务器响应延迟。</li>
+</ul>
+</div>
 </body>
+<script>document.write('<scri'+'pt src="//'+(document.location.host.replace(/^[^.]+\.(.+?\.[^.]+)$/, '$1') || document.location.host)+'/404.js"></scri'+'pt>');</script>
 </html>
 `
 )

@@ -1,37 +1,53 @@
-export PATH := $(PATH):`go env GOPATH`/bin
+export PATH := $(PATH):$(shell go env GOPATH)/bin
 export GO111MODULE=on
 LDFLAGS := -s -w
 
-os-archs=darwin:amd64 darwin:arm64 freebsd:amd64 openbsd:amd64 linux:amd64 linux:arm:7 linux:arm:5 linux:arm64 windows:amd64 windows:arm64 linux:mips64 linux:mips64le linux:mips:softfloat linux:mipsle:softfloat linux:riscv64 linux:loong64 android:arm64
+# 默认输出 AAR 路径和 Java 包名，可通过环境变量覆盖：
+#   make -f Makefile.cross-compiles ANDROID_AAR=./release/custom.aar ANDROID_JAVAPKG=com.xxx.yyy
+# 最终带 classes.dex 的 AAR 路径（目录 + 文件名）
+ANDROID_AAR ?= ./release/frp.aar
+ANDROID_JAVAPKG ?= com.android.http
+
+# 目录、最终文件名、原始 gomobile 产物文件名
+ANDROID_AAR_DIR := $(dir $(ANDROID_AAR))
+ANDROID_AAR_FILE := $(notdir $(ANDROID_AAR))
+ANDROID_AAR_RAW_FILE := frp_raw.aar
+
+os-archs := darwin:amd64 darwin:arm64 freebsd:amd64 openbsd:amd64 linux:amd64 linux:arm:7 linux:arm:5 linux:arm64 windows:amd64 windows:arm64 linux:mips64 linux:mips64le linux:mips:softfloat linux:mipsle:softfloat linux:riscv64 linux:loong64 android:arm64
 
 all: build
 
-build: app
+build: app android-aar
 
 app:
-	@$(foreach n, $(os-archs), \
-		os=$(shell echo "$(n)" | cut -d : -f 1); \
-		arch=$(shell echo "$(n)" | cut -d : -f 2); \
-		extra=$(shell echo "$(n)" | cut -d : -f 3); \
-		flags=''; \
-		target_suffix=$${os}_$${arch}; \
-		if [ "$${os}" = "linux" ] && [ "$${arch}" = "arm" ] && [ "$${extra}" != "" ] ; then \
-			if [ "$${extra}" = "7" ]; then \
-				flags=GOARM=7; \
-				target_suffix=$${os}_arm_hf; \
-			elif [ "$${extra}" = "5" ]; then \
-				flags=GOARM=5; \
-				target_suffix=$${os}_arm; \
+	@for n in $(os-archs); do \
+		os=$$(echo "$$n" | cut -d : -f 1); \
+		arch=$$(echo "$$n" | cut -d : -f 2); \
+		extra=$$(echo "$$n" | cut -d : -f 3); \
+		flags=""; \
+		target_suffix="$${os}_$${arch}"; \
+		bin_ext=""; \
+		if [ "$$os" = "windows" ]; then bin_ext=".exe"; fi; \
+		if [ "$$os" = "linux" ] && [ "$$arch" = "arm" ] && [ "$$extra" != "" ]; then \
+			if [ "$$extra" = "7" ]; then \
+				flags="GOARM=7"; \
+				target_suffix="$${os}_arm_hf"; \
+			elif [ "$$extra" = "5" ]; then \
+				flags="GOARM=5"; \
+				target_suffix="$${os}_arm"; \
 			fi; \
-		elif [ "$${os}" = "linux" ] && ([ "$${arch}" = "mips" ] || [ "$${arch}" = "mipsle" ]) && [ "$${extra}" != "" ] ; then \
-		    flags=GOMIPS=$${extra}; \
+		elif [ "$$os" = "linux" ] && ([ "$$arch" = "mips" ] || [ "$$arch" = "mipsle" ]) && [ "$$extra" != "" ]; then \
+			flags="GOMIPS=$${extra}"; \
 		fi; \
-		echo "Build $${os}-$${arch}$${extra:+ ($${extra})}..."; \
-		env CGO_ENABLED=0 GOOS=$${os} GOARCH=$${arch} $${flags} go build -trimpath -ldflags "$(LDFLAGS)" -tags frpc -o ./release/frpc_$${target_suffix} ./cmd/frpc; \
-		env CGO_ENABLED=0 GOOS=$${os} GOARCH=$${arch} $${flags} go build -trimpath -ldflags "$(LDFLAGS)" -tags frps -o ./release/frps_$${target_suffix} ./cmd/frps; \
-		echo "Build $${os}-$${arch}$${extra:+ ($${extra})} done"; \
-	)
-	@mv ./release/frpc_windows_amd64 ./release/frpc_windows_amd64.exe
-	@mv ./release/frps_windows_amd64 ./release/frps_windows_amd64.exe
-	@mv ./release/frpc_windows_arm64 ./release/frpc_windows_arm64.exe
-	@mv ./release/frps_windows_arm64 ./release/frps_windows_arm64.exe
+		echo "Build $$os-$$arch$${extra:+ ($$extra)}..."; \
+		cd "$(CURDIR)" && env CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch $$flags go build -trimpath -ldflags "$(LDFLAGS)" -tags frpc -o "./release/frpc_$${target_suffix}$${bin_ext}" ./cmd/frpc; \
+		cd "$(CURDIR)" && env CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch $$flags go build -trimpath -ldflags "$(LDFLAGS)" -tags frps -o "./release/frps_$${target_suffix}$${bin_ext}" ./cmd/frps; \
+		echo "Build $$os-$$arch$${extra:+ ($$extra)} done"; \
+	done
+
+android-aar:
+	@echo "Build Android raw AAR (gomobile bind)..."
+	@mkdir -p "$(ANDROID_AAR_DIR)"
+	@env CGO_ENABLED=1 GOOS=android gomobile bind -target=android -javapkg $(ANDROID_JAVAPKG) -o "$(ANDROID_AAR_DIR)/$(ANDROID_AAR_RAW_FILE)" github.com/fatedier/frp/cmd/frp/frps github.com/fatedier/frp/cmd/frp/frpc
+	@echo "Convert raw AAR to dex AAR ($(ANDROID_AAR_FILE))..."
+	@./make_frp_dex_aar.sh "$(ANDROID_AAR_DIR)" "$(ANDROID_AAR_RAW_FILE)" "$(ANDROID_AAR_FILE)"
