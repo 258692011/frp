@@ -4,7 +4,7 @@ import (
 	//"fmt"
 	"github.com/fatedier/golib/crypto"
 
-	_ "github.com/fatedier/frp/assets/frps"
+	_ "github.com/fatedier/frp/web/frps"
 	"github.com/fatedier/frp/cmd/frps/sub"
 	_ "github.com/fatedier/frp/pkg/metrics"
 )

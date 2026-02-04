@@ -2,7 +2,7 @@ package frpclib
 
 import (
 	//"fmt"
-	_ "github.com/fatedier/frp/assets/frpc"
+	_ "github.com/fatedier/frp/web/frpc"
 	"github.com/fatedier/frp/cmd/frpc/sub"
 	"github.com/fatedier/frp/pkg/policy/security"
 	"github.com/fatedier/golib/crypto"

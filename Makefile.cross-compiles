@@ -1,6 +1,10 @@
+SHELL := /usr/bin/env bash
+
 export PATH := $(PATH):$(shell go env GOPATH)/bin
 export GO111MODULE=on
 LDFLAGS := -s -w
+
+.PHONY: web frps-web frpc-web app android-aar
 
 # 默认输出 AAR 路径和 Java 包名，可通过环境变量覆盖：
 #   make -f Makefile.cross-compiles ANDROID_AAR=./release/custom.aar ANDROID_JAVAPKG=com.xxx.yyy
@@ -17,7 +21,16 @@ os-archs := darwin:amd64 darwin:arm64 freebsd:amd64 openbsd:amd64 linux:amd64 li
 
 all: build
 
-build: app android-aar
+# 先构建前端 dist，再构建各平台二进制和 Android AAR
+build: web app android-aar
+
+web: frps-web frpc-web
+
+frps-web:
+	@$(MAKE) -C web/frps install build
+
+frpc-web:
+	@$(MAKE) -C web/frpc install build
 
 app:
 	@for n in $(os-archs); do \
