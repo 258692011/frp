@@ -104,5 +104,15 @@ rm -rf "$WORK_DIR"
 
 echo "[4/4] 完成！输出文件: $INPUT_DIR_ABS/$OUTPUT_AAR"
 
+# 如果存在 frp_raw-sources.jar 这样的源码包，一并改名为与输出 AAR 对应的 *-sources.jar
+RAW_BASE="${INPUT_AAR%.aar}"          # 例如 frp_raw
+OUT_BASE="${OUTPUT_AAR%.aar}"         # 例如 frp
+RAW_SOURCES_JAR="$INPUT_DIR_ABS/${RAW_BASE}-sources.jar"
+OUT_SOURCES_JAR="$INPUT_DIR_ABS/${OUT_BASE}-sources.jar"
+if [ -f "$RAW_SOURCES_JAR" ]; then
+  mv "$RAW_SOURCES_JAR" "$OUT_SOURCES_JAR"
+  echo "源码包已重命名为: $OUT_SOURCES_JAR"
+fi
+
 # 清理中间产物 frp_raw.aar
 rm -f "$INPUT_DIR_ABS/$INPUT_AAR"
