@@ -3,12 +3,12 @@ package frpc
 import (
 	"embed"
 
-	"github.com/fatedier/frp/assets"
+	assetsfrpc "github.com/fatedier/frp/assets/frpc"
 )
 
 //go:embed dist
 var EmbedFS embed.FS
 
 func init() {
-	assets.Register(EmbedFS)
+	assetsfrpc.Register(EmbedFS)
 }

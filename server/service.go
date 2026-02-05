@@ -32,6 +32,7 @@ import (
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
 
+	assetsfrps "github.com/fatedier/frp/assets/frps"
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	modelmetrics "github.com/fatedier/frp/pkg/metrics"
@@ -143,7 +144,15 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 
 	var webServer *httppkg.Server
 	if cfg.WebServer.Port > 0 {
-		ws, err := httppkg.NewServer(cfg.WebServer)
+		// 优先使用配置的 AssetsDir；否则使用嵌入的 frps 前端资源。
+		var assetsFS http.FileSystem
+		if cfg.WebServer.AssetsDir != "" {
+			assetsFS = http.Dir(cfg.WebServer.AssetsDir)
+		} else {
+			assetsFS = assetsfrps.FileSystem
+		}
+
+		ws, err := httppkg.NewServer(cfg.WebServer, assetsFS)
 		if err != nil {
 			return nil, err
 		}
