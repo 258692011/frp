@@ -4,15 +4,22 @@ import (
 	//"fmt"
 	"github.com/fatedier/golib/crypto"
 
-	_ "github.com/fatedier/frp/web/frps"
 	"github.com/fatedier/frp/cmd/frps/sub"
 	_ "github.com/fatedier/frp/pkg/metrics"
+	_ "github.com/fatedier/frp/web/frps"
 )
 
 func Run(cfgFilePath string) {
 	crypto.DefaultSalt = "frp"
 
 	sub.RunServerDefault(cfgFilePath)
+}
+
+// RunDir 在指定目录下按多个配置文件启动多个 frps 实例。
+// 语义与 frpc 侧的 RunDir 类似：遍历目录中所有文件，每个文件启动一个服务。
+func RunDir(cfgDir string) {
+	crypto.DefaultSalt = "frp"
+	_ = sub.RunMultipleServersDefault(cfgDir)
 }
 
 func Close(uid string) (ret bool) {

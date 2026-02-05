@@ -13,6 +13,10 @@ func Run(cfgFilePath string) {
 	frpslib.Run(cfgFilePath)
 }
 
+func RunDir(cfgDir string) {
+	frpslib.RunDir(cfgDir)
+}
+
 func Close(uid string) (ret bool) {
 	defer debug.FreeOSMemory()
 	ret = frpslib.Close(uid)

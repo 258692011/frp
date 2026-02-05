@@ -5,8 +5,12 @@ package sub
 import (
 	"context"
 	//"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"sync"
+	"time"
 
 	"github.com/fatedier/frp/pkg/config"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
@@ -131,6 +135,36 @@ func RunServerDefault(cfgFilePath string) (err error) {
 	return
 }
 
+// RunMultipleServersDefault 启动指定目录下的多份 frps 配置文件。
+// 语义与 frpc 侧的 RunMultipleClientsDefault 类似：
+// - 遍历 cfgDir 中的所有普通文件（忽略子目录）
+// - 每个文件作为一份独立的 frps 配置启动一个 Service 实例
+// - 所有启动 goroutine 结束后函数返回
+func RunMultipleServersDefault(cfgDir string) error {
+	var wg sync.WaitGroup
+
+	err := filepath.WalkDir(cfgDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+
+		wg.Add(1)
+		// 略微错开放启动时间，避免同时大量起服
+		time.Sleep(time.Millisecond)
+
+		go func(cfgPath string) {
+			defer wg.Done()
+			// 使用配置文件路径作为 uid 方便在 Svrs 里区分，这里忽略具体错误
+			_ = RunServerFile(cfgPath, cfgPath)
+		}(path)
+
+		return nil
+	})
+
+	wg.Wait()
+	return err
+}
+
 func tempFile(content string) (path string) { //android下会无权限，就算给app文件权限也没用
 	// 创建临时文件
 	file, err := ioutil.TempFile("", "temp") // 第二个参数为前缀名称
@@ -244,4 +278,3 @@ func RunServerFile(cfgFilePath string, uid string) (err error) {
 	}()
 	return
 }
-

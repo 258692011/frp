@@ -244,6 +244,7 @@ make -f Makefile.cross-compiles
 ### 7.2 `cmd/frp/frps`
 
 - `Run(cfgFilePath string)`
+- `RunDir(cfgDir string)`
 - `RunContent(uid, cfgContent string) (err string)`
 - `RunFile(uid, cfgFilePath string) (err string)`
 - `Close(uid string) bool`
