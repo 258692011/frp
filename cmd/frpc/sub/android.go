@@ -20,6 +20,7 @@ import (
 
 	"github.com/fatedier/frp/client"
 	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/config/source"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/policy/featuregate"
@@ -205,12 +206,17 @@ func startServiceContent(
 		defer log.Infof("frpc service for config file [%+v] stopped", cfgFile)
 	}
 
+	configSrc := source.NewConfigSource()
+	if err := configSrc.ReplaceAll(proxyCfgs, visitorCfgs); err != nil {
+		return err
+	}
+	aggregator := source.NewAggregator(configSrc)
+
 	svr, err := client.NewService(client.ServiceOptions{
-		Common:         cfg,
-		ProxyCfgs:      proxyCfgs,
-		VisitorCfgs:    visitorCfgs,
-		UnsafeFeatures: unsafeFeatures,
-		ConfigFilePath: cfgFile,
+		Common:                 cfg,
+		ConfigSourceAggregator: aggregator,
+		UnsafeFeatures:         unsafeFeatures,
+		ConfigFilePath:         cfgFile,
 	})
 	if err != nil {
 		return err
