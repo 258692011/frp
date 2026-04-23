@@ -183,6 +183,9 @@ export ANDROID_SDK_ROOT="/c/Users/admin/AppData/Local/Android/Sdk"  # Windows Gi
       BUILD_TOOLS_VERSION="34.0.0"   # 如果你只安装了 33.0.2，请改为 33.0.2
       ```
 
+    - `ANDROID_PLATFORM_DIR`（可选，默认 `android-34`）：`d8` 需要 **`platforms/<目录>/android.jar`** 作为 `--lib`，否则会大量警告「找不到 `java.lang.*`」等；若本机未装 Android 34 Platform，请改为已安装的目录名（如 `android-33`），或导出环境变量：  
+      `export ANDROID_PLATFORM_DIR=android-33`。
+
   - 关键步骤：
     1. 解压 `frp_raw.aar` → 取出 `classes.jar`；
     2. 使用 `d8` 把 `classes.jar` 转成 `classes.dex`；
@@ -259,7 +262,9 @@ make -f Makefile.cross-compiles
 
 ### 8.1 `"golang.org/x/mobile/bind" is not found`
 
-- 配置 `GOPROXY` 后执行：
+- 本仓库在 **`cmd/frp/frpc/main.go`** 与 **`cmd/frp/frps/main.go`** 中对 **`golang.org/x/mobile/bind`** 做了 **空导入**（`_ "golang.org/x/mobile/bind"`），保证 **gobind** 能在当前模块里解析到 `bind`；**`go.mod` 中已显式依赖 `golang.org/x/mobile`**。
+- 请先在本模块根目录执行 **`go mod tidy`**，再跑 **`gomobile bind`**。
+- 若仍报错，配置 `GOPROXY` 后执行：
 
   ```bash
   go get golang.org/x/mobile/bind@latest
@@ -274,6 +279,11 @@ make -f Makefile.cross-compiles
 ### 8.3 找不到 `gomobile` / `gobind`
 
 - 确认 `$GOPATH/bin` 已加入系统 `PATH`（Windows 示例：`C:\Users\admin\go\bin`）；
+
+### 8.4 `link: github.com/wlynxg/anet: invalid reference to net.zoneCache`
+
+- **原因**：Go **1.23 起** 默认加强了对 `//go:linkname` 的检查；`github.com/wlynxg/anet`（经 `pion` 等依赖引入）在链接 Android 目标时会触发该错误。
+- **处理**：交叉编译与 `gomobile bind` 已在本仓库 **`Makefile.cross-compiles`** 中为 **Android** 追加 **`-ldflags="-checklinkname=0"`**（与 `-s -w` 一并传入）。若你自行执行 `go build`，对 `GOOS=android` 请同样加上该 flag。
 
 ---
 

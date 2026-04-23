@@ -24,6 +24,8 @@ if [ -z "$SDK_ROOT" ]; then
 fi
 
 BUILD_TOOLS_VERSION="34.0.0"   # 改成你本机安装的 build-tools 版本，如 33.0.2
+# d8 脱糖需要 android.jar；与 build-tools 大版本对齐即可（可覆盖）
+ANDROID_PLATFORM_DIR="${ANDROID_PLATFORM_DIR:-android-34}"
 
 # 参数：
 #   $1: frp_raw.aar 所在目录（默认当前目录）
@@ -45,6 +47,13 @@ if [ ! -f "$INPUT_DIR_ABS/$INPUT_AAR" ]; then
 fi
 
 D8="$SDK_ROOT/build-tools/$BUILD_TOOLS_VERSION/d8"
+
+ANDROID_JAR="$SDK_ROOT/platforms/$ANDROID_PLATFORM_DIR/android.jar"
+if [ ! -f "$ANDROID_JAR" ]; then
+  echo "找不到 android.jar: $ANDROID_JAR"
+  echo "请安装对应 Platform（SDK Manager → Android SDK → SDK Platforms），或设置 ANDROID_PLATFORM_DIR，例如：android-33"
+  exit 1
+fi
 
 # 检查是否安装 zip（用于重新打包 AAR）
 if ! command -v zip >/dev/null 2>&1; then
@@ -81,9 +90,11 @@ if [ ! -f "$WORK_DIR/classes.jar" ]; then
 fi
 
 echo "[2/4] 使用 d8 将 classes.jar 转成 classes.dex ..."
+# 传入 --lib android.jar，避免新版 d8 在脱糖时大量警告「找不到 java.lang.*」等（仍与旧行为兼容）
 "$D8" \
   --release \
   --min-api 19 \
+  --lib "$ANDROID_JAR" \
   --output "$WORK_DIR" \
   "$WORK_DIR/classes.jar"
 

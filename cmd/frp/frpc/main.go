@@ -3,6 +3,9 @@ package client
 import (
 	frpclib "github.com/fatedier/frp/cmd/frp/frpc/sub"
 	"runtime/debug"
+
+	// gobind / gomobile bind 需要该包出现在模块依赖图中（go mod tidy 不会从间接依赖推断出 bind）。
+	_ "golang.org/x/mobile/bind"
 )
 
 func init() {

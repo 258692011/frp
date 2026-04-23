@@ -26,8 +26,9 @@ require (
 	github.com/tidwall/gjson v1.17.1
 	github.com/vishvananda/netlink v1.3.0
 	github.com/xtaci/kcp-go/v5 v5.6.13
-	golang.org/x/crypto v0.49.0
-	golang.org/x/net v0.52.0
+	golang.org/x/crypto v0.50.0
+	golang.org/x/mobile v0.0.0-20260410095206-2cfb76559b7b
+	golang.org/x/net v0.53.0
 	golang.org/x/oauth2 v0.28.0
 	golang.org/x/sync v0.20.0
 	golang.org/x/time v0.10.0
@@ -67,10 +68,10 @@ require (
 	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
-	golang.org/x/mod v0.33.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
-	golang.org/x/tools v0.42.0 // indirect
+	golang.org/x/mod v0.35.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/tools v0.44.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
