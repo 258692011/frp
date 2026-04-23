@@ -4,6 +4,7 @@ package sub
 
 import (
 	"context"
+	"fmt"
 
 	//"fmt"
 	"io/fs"
@@ -152,7 +153,94 @@ func RunClientDefault(cfgFilePath string, unsafeFeatures *security.UnsafeFeature
 	return runClient(cfgFilePath, unsafeFeatures)
 }
 
-func RunClientContent(cfgContent string, uid string, unsafeFeatures *security.UnsafeFeatures) error {
+func shouldForceRestart(forceRestart []bool) bool {
+	return len(forceRestart) > 0 && forceRestart[0]
+}
+
+func ensureClientSlot(uid string, forceRestart bool) error {
+	if uid == "" {
+		return fmt.Errorf("uid cannot be empty")
+	}
+	if existing, ok := svrs[uid]; ok && existing != nil {
+		if !forceRestart {
+			return fmt.Errorf("service already running for uid: %s", uid)
+		}
+		SvrClose(uid)
+	}
+	return nil
+}
+
+func RunClientFile(cfgFilePath string, uid string, unsafeFeatures *security.UnsafeFeatures, forceRestart ...bool) error {
+	if err := ensureClientSlot(uid, shouldForceRestart(forceRestart)); err != nil {
+		return err
+	}
+
+	result, err := config.LoadClientConfigResult(cfgFilePath, strictConfigMode)
+	if err != nil {
+		return err
+	}
+
+	if len(result.Common.FeatureGates) > 0 {
+		if err := featuregate.SetFromMap(result.Common.FeatureGates); err != nil {
+			return err
+		}
+	}
+
+	configSource := source.NewConfigSource()
+	if err := configSource.ReplaceAll(result.Proxies, result.Visitors); err != nil {
+		return err
+	}
+
+	var storeSource *source.StoreSource
+	if result.Common.Store.IsEnabled() {
+		storePath := result.Common.Store.Path
+		if storePath != "" && cfgFilePath != "" && !filepath.IsAbs(storePath) {
+			storePath = filepath.Join(filepath.Dir(cfgFilePath), storePath)
+		}
+
+		s, err := source.NewStoreSource(source.StoreSourceConfig{
+			Path: storePath,
+		})
+		if err != nil {
+			return err
+		}
+		storeSource = s
+	}
+
+	aggregator := source.NewAggregator(configSource)
+	if storeSource != nil {
+		aggregator.SetStoreSource(storeSource)
+	}
+
+	proxyCfgs, visitorCfgs, err := aggregator.Load()
+	if err != nil {
+		return err
+	}
+
+	proxyCfgs, visitorCfgs = config.FilterClientConfigurers(result.Common, proxyCfgs, visitorCfgs)
+	proxyCfgs = config.CompleteProxyConfigurers(proxyCfgs)
+	visitorCfgs = config.CompleteVisitorConfigurers(visitorCfgs)
+
+	warning, err := validation.ValidateAllClientConfig(result.Common, proxyCfgs, visitorCfgs, unsafeFeatures)
+	if warning != nil {
+		//fmt.Printf("WARNING: %+v\n", warning)
+	}
+	if err != nil {
+		return err
+	}
+
+	err = startServiceWithAggregatorWithID(result.Common, aggregator, unsafeFeatures, cfgFilePath, uid)
+	if err != nil {
+		SvrClose(uid)
+	}
+	return err
+}
+
+func RunClientContent(cfgContent string, uid string, unsafeFeatures *security.UnsafeFeatures, forceRestart ...bool) error {
+	if err := ensureClientSlot(uid, shouldForceRestart(forceRestart)); err != nil {
+		return err
+	}
+
 	cfg, proxyCfgs, visitorCfgs, isLegacyFormat, err := config.LoadClientConfigFromContent(cfgContent, strictConfigMode)
 	if err != nil {
 		return err
@@ -238,3 +326,40 @@ func startServiceContent(
 	return err
 }
 
+func startServiceWithAggregatorWithID(
+	cfg *v1.ClientCommonConfig,
+	aggregator *source.Aggregator,
+	unsafeFeatures *security.UnsafeFeatures,
+	cfgFile string,
+	uid string,
+) error {
+	log.InitLogger(cfg.Log.To, cfg.Log.Level, int(cfg.Log.MaxDays), cfg.Log.DisablePrintColor)
+
+	if cfgFile != "" {
+		log.Infof("start frpc service for config file [%s] with aggregated configuration", cfgFile)
+		defer log.Infof("frpc service for config file [%s] stopped", cfgFile)
+	}
+	svr, err := client.NewService(client.ServiceOptions{
+		Common:                 cfg,
+		ConfigSourceAggregator: aggregator,
+		UnsafeFeatures:         unsafeFeatures,
+		ConfigFilePath:         cfgFile,
+	})
+	if err != nil {
+		return err
+	}
+
+	svrs[uid] = svr
+
+	closedDoneCh := make(chan struct{})
+	shouldGracefulClose := cfg.Transport.Protocol == "kcp" || cfg.Transport.Protocol == "quic"
+	if shouldGracefulClose {
+		go handleTermSignalWithID(svrs[uid], closedDoneCh)
+	}
+
+	err = svrs[uid].Run(context.Background())
+	if err == nil && shouldGracefulClose {
+		<-closedDoneCh
+	}
+	return err
+}

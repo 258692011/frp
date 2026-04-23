@@ -2,9 +2,9 @@ package frpclib
 
 import (
 	//"fmt"
-	_ "github.com/fatedier/frp/web/frpc"
 	"github.com/fatedier/frp/cmd/frpc/sub"
 	"github.com/fatedier/frp/pkg/policy/security"
+	_ "github.com/fatedier/frp/web/frpc"
 	"github.com/fatedier/golib/crypto"
 )
 
@@ -49,8 +49,7 @@ func RunContent(uid string, cfgContent string, allowUnsafe ...string) (err strin
 	unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
 	s := sub.RunClientContent(cfgContent, uid, unsafeFeatures)
 	if s != nil {
-		//fmt.Printf("FRPC Service Run Error %s\n", s)
-		err = "FRPC Service Run Error"
+		err = s.Error()
 	}
 	return
 }
@@ -62,10 +61,33 @@ func RunFile(uid string, cfgFilePath string, allowUnsafe ...string) (err string)
 
 	err = ""
 	unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
-	s := sub.RunClientDefault(cfgFilePath, unsafeFeatures)
+	s := sub.RunClientFile(cfgFilePath, uid, unsafeFeatures)
 	if s != nil {
-		//fmt.Printf("%s\n", s)
-		err = "FRPC Service Run Error"
+		err = s.Error()
+	}
+	return
+}
+
+func RunContentWithForce(uid string, cfgContent string, forceRestart bool, allowUnsafe ...string) (err string) {
+	crypto.DefaultSalt = "frp"
+
+	err = ""
+	unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
+	s := sub.RunClientContent(cfgContent, uid, unsafeFeatures, forceRestart)
+	if s != nil {
+		err = s.Error()
+	}
+	return
+}
+
+func RunFileWithForce(uid string, cfgFilePath string, forceRestart bool, allowUnsafe ...string) (err string) {
+	crypto.DefaultSalt = "frp"
+
+	err = ""
+	unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
+	s := sub.RunClientFile(cfgFilePath, uid, unsafeFeatures, forceRestart)
+	if s != nil {
+		err = s.Error()
 	}
 	return
 }

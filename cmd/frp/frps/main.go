@@ -42,3 +42,13 @@ func RunFile(uid string, cfgFilePath string) (err string) {
 	err = frpslib.RunFile(uid, cfgFilePath)
 	return
 }
+
+func RunContentWithForce(uid string, cfgContent string, forceRestart bool) (err string) {
+	err = frpslib.RunContentWithForce(uid, cfgContent, forceRestart)
+	return
+}
+
+func RunFileWithForce(uid string, cfgFilePath string, forceRestart bool) (err string) {
+	err = frpslib.RunFileWithForce(uid, cfgFilePath, forceRestart)
+	return
+}

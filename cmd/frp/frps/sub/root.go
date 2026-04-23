@@ -48,8 +48,7 @@ func RunContent(uid string, cfgContent string) (err string) {
 	err = ""
 	s := sub.RunServerContent(cfgContent, uid)
 	if s != nil {
-		//fmt.Printf("FRPS Service Run Error %s\n", s)
-		err = "FRPS Service Run Error"
+		err = s.Error()
 	}
 	return
 }
@@ -62,8 +61,29 @@ func RunFile(uid string, cfgFilePath string) (err string) {
 	err = ""
 	s := sub.RunServerFile(cfgFilePath, uid)
 	if s != nil {
-		//fmt.Printf("%s\n", s)
-		err = "FRPS Service Run Error"
+		err = s.Error()
+	}
+	return
+}
+
+func RunContentWithForce(uid string, cfgContent string, forceRestart bool) (err string) {
+	crypto.DefaultSalt = "frp"
+
+	err = ""
+	s := sub.RunServerContent(cfgContent, uid, forceRestart)
+	if s != nil {
+		err = s.Error()
+	}
+	return
+}
+
+func RunFileWithForce(uid string, cfgFilePath string, forceRestart bool) (err string) {
+	crypto.DefaultSalt = "frp"
+
+	err = ""
+	s := sub.RunServerFile(cfgFilePath, uid, forceRestart)
+	if s != nil {
+		err = s.Error()
 	}
 	return
 }

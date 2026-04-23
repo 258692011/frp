@@ -4,6 +4,7 @@ package sub
 
 import (
 	"context"
+	"fmt"
 	//"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -185,7 +186,28 @@ func tempFile(content string) (path string) { //android下会无权限，就算�
 	return
 }
 
-func RunServerContent(cfgContent string, uid string) (err error) {
+func shouldForceRestart(forceRestart []bool) bool {
+	return len(forceRestart) > 0 && forceRestart[0]
+}
+
+func ensureServerSlot(uid string, forceRestart bool) error {
+	if uid == "" {
+		return fmt.Errorf("uid cannot be empty")
+	}
+	if existing, ok := Svrs[uid]; ok && existing != nil {
+		if !forceRestart {
+			return fmt.Errorf("service already running for uid: %s", uid)
+		}
+		SvrClose(uid)
+	}
+	return nil
+}
+
+func RunServerContent(cfgContent string, uid string, forceRestart ...bool) (err error) {
+	if err := ensureServerSlot(uid, shouldForceRestart(forceRestart)); err != nil {
+		return err
+	}
+
 	var (
 		svrCfg         *v1.ServerConfig
 		isLegacyFormat bool
@@ -227,7 +249,11 @@ func RunServerContent(cfgContent string, uid string) (err error) {
 	return
 }
 
-func RunServerFile(cfgFilePath string, uid string) (err error) {
+func RunServerFile(cfgFilePath string, uid string, forceRestart ...bool) (err error) {
+	if err := ensureServerSlot(uid, shouldForceRestart(forceRestart)); err != nil {
+		return err
+	}
+
 	cfgFile = cfgFilePath
 	var (
 		svrCfg         *v1.ServerConfig
