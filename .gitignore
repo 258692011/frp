@@ -18,6 +18,7 @@ release/
 test/bin/
 vendor/
 lastversion/
+.cache/
 dist/
 .idea/
 .vscode/
@@ -35,5 +36,5 @@ node_modules/
 .sisyphus/
 .superpowers/
 
-# 本地备忘，不提交（见文件内说明）
+# Local notes (not for repo)
 LOCAL_MEMO.md
