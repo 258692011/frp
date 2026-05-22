@@ -35,3 +35,6 @@ node_modules/
 .claude/
 .sisyphus/
 .superpowers/
+
+# Local notes (not for repo)
+LOCAL_MEMO.md
