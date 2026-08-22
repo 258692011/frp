@@ -83,27 +83,24 @@ jobs:
           java-version: '17'
 
       - name: Prepare Android SDK (build-tools 34.0.0, platform android-34, NDK)
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           ls "$ANDROID_SDK_ROOT" >/dev/null 2>&1 || { echo "ANDROID_SDK_ROOT missing"; exit 1; }
-          echo "== preinstalled build-tools =="; ls "$ANDROID_SDK_ROOT/build-tools" 2>/dev/null || true
-          echo "== preinstalled platforms =="; ls "$ANDROID_SDK_ROOT/platforms" 2>/dev/null || true
-          echo "== preinstalled ndk =="; ls "$ANDROID_SDK_ROOT/ndk" 2>/dev/null || true
-          NEED=""
-          [ -d "$ANDROID_SDK_ROOT/build-tools/34.0.0" ] || NEED="$NEED build-tools;34.0.0"
-          [ -d "$ANDROID_SDK_ROOT/platforms/android-34" ] || NEED="$NEED platforms;android-34"
-          if [ -n "$NEED" ]; then
-            echo "Installing via sdkmanager:$NEED"
-            yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" $NEED >/dev/null
-          fi
-          # gomobile (2026-04 pin) rejects NDK 27 (min API 16, not in 21..35); use NDK r26d which it supports
+          echo "== build-tools =="; ls "$ANDROID_SDK_ROOT/build-tools" 2>/dev/null || true
+          echo "== platforms =="; ls "$ANDROID_SDK_ROOT/platforms" 2>/dev/null || true
+          echo "== ndk =="; ls "$ANDROID_SDK_ROOT/ndk" 2>/dev/null || true
+          test -x "$ANDROID_SDK_ROOT/build-tools/34.0.0/d8" || { echo "build-tools 34.0.0 missing"; exit 1; }
+          test -f "$ANDROID_SDK_ROOT/platforms/android-34/android.jar" || { echo "platform android-34 missing"; exit 1; }
+          # gomobile (2026-04 pin) rejects NDK 27+ (min API 16, not in 21..35); install NDK r26d directly
           if [ ! -d "$ANDROID_SDK_ROOT/ndk/26.3.11579264" ]; then
-            echo "Installing NDK r26d ..."
-            yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "ndk;26.3.11579264" >/dev/null
+            echo "Downloading NDK r26d (~700MB) ..."
+            curl -sLo /tmp/ndk26.zip https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
+            rm -rf /tmp/ndk26 && mkdir -p /tmp/ndk26
+            unzip -q /tmp/ndk26.zip -d /tmp/ndk26
+            SRC=$(find /tmp/ndk26 -mindepth 1 -maxdepth 1 -type d | head -1)
+            mv "$SRC" "$ANDROID_SDK_ROOT/ndk/26.3.11579264"
+            echo "NDK r26d installed"
           fi
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.3.11579264" >> "$GITHUB_ENV"
-          test -x "$ANDROID_SDK_ROOT/build-tools/34.0.0/d8" && echo "d8 OK"
 
       - name: Build web assets (frps)
         run: make build
