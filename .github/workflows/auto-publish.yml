@@ -1,0 +1,152 @@
+name: Auto Merge & Publish android-support Release
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-publish
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Merge upstream fatedier/frp
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.latest.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: android-support
+          fetch-depth: 0
+
+      - name: Fetch fatedier/frp master
+        run: |
+          git remote add fatedier https://github.com/fatedier/frp.git 2>/dev/null || git remote set-url fatedier https://github.com/fatedier/frp.git
+          git fetch fatedier master
+
+      - name: Get latest official version
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(gh api repos/fatedier/frp/releases/latest --jq .tag_name)
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Latest official release: $V"
+
+      - name: Merge if behind
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git merge-base --is-ancestor fatedier/master HEAD; then
+            echo "Already up to date with fatedier/master"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git merge fatedier/master -m "Merge fatedier/frp ${{ steps.latest.outputs.version }} into android-support" --no-edit
+            git push origin android-support
+          fi
+
+  build:
+    name: Build & Publish
+    needs: update
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: android-support
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Set up Java (for d8)
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Prepare Android SDK (build-tools 34.0.0, platform android-34, NDK)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls "$ANDROID_SDK_ROOT" >/dev/null 2>&1 || { echo "ANDROID_SDK_ROOT missing"; exit 1; }
+          echo "== preinstalled build-tools =="; ls "$ANDROID_SDK_ROOT/build-tools" 2>/dev/null || true
+          echo "== preinstalled platforms =="; ls "$ANDROID_SDK_ROOT/platforms" 2>/dev/null || true
+          echo "== preinstalled ndk =="; ls "$ANDROID_SDK_ROOT/ndk" 2>/dev/null || true
+          NEED=""
+          [ -d "$ANDROID_SDK_ROOT/build-tools/34.0.0" ] || NEED="$NEED build-tools;34.0.0"
+          [ -d "$ANDROID_SDK_ROOT/platforms/android-34" ] || NEED="$NEED platforms;android-34"
+          [ -d "$ANDROID_SDK_ROOT/ndk" ] || NEED="$NEED ndk;26.3.11579264"
+          if [ -n "$NEED" ]; then
+            echo "Installing via sdkmanager:$NEED"
+            yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" $NEED >/dev/null
+          fi
+          NDK_DIR=$(ls -d "$ANDROID_SDK_ROOT"/ndk/* 2>/dev/null | head -1)
+          echo "Using NDK: $NDK_DIR"
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
+          test -x "$ANDROID_SDK_ROOT/build-tools/34.0.0/d8" && echo "d8 OK"
+
+      - name: Build web assets (frps)
+        run: make build
+        working-directory: web/frps
+
+      - name: Build web assets (frpc)
+        run: make build
+        working-directory: web/frpc
+
+      - name: Install gomobile
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@v0.0.0-20260410095206-2cfb76559b7b
+          "$(go env GOPATH)/bin/gomobile" init
+
+      - name: Package all (multi-platform binaries + Android AAR)
+        run: ./package.sh
+
+      - name: Verify artifacts
+        id: artifacts
+        run: |
+          VERSION=$(./bin/frps --version)
+          echo "Built version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          test -f release/frp.aar && echo "frp.aar OK ($(du -h release/frp.aar | cut -f1))"
+          test -f release/frp-sources.jar && echo "frp-sources.jar OK"
+          ls release/packages/ | wc -l | xargs echo "platform packages:"
+          ls release/packages/ | head -5
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.artifacts.outputs.version }}"
+          TAG="v${VERSION}-android-support"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, skipping"
+            exit 0
+          fi
+          echo "Creating release $TAG ..."
+          BODY=$(gh release view "v${VERSION}" --repo fatedier/frp --json body --jq .body 2>/dev/null || echo "")
+          printf '%s\n\n---\nAuto-built from [fatedier/frp v%s](https://github.com/fatedier/frp/releases/tag/v%s) with android-support (frp.aar via gomobile bind).\n' "$BODY" "$VERSION" "$VERSION" > /tmp/release-notes.md
+          gh release create "$TAG" \
+            ./release/frp.aar ./release/frp-sources.jar ./release/packages/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "v${VERSION}" \
+            --latest \
+            --notes-file /tmp/release-notes.md
+          echo "Published: https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
