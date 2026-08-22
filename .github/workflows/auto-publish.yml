@@ -118,7 +118,9 @@ jobs:
           "$(go env GOPATH)/bin/gomobile" version
 
       - name: Package all (multi-platform binaries + Android AAR)
-        run: ./package.sh
+        run: |
+          chmod +x make_frp_dex_aar.sh
+          ./package.sh
 
       - name: Verify artifacts
         id: artifacts
