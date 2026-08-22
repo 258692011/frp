@@ -77,7 +77,7 @@ jobs:
           node-version: '22'
 
       - name: Set up Java (for d8)
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
