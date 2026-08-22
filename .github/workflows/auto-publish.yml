@@ -77,7 +77,7 @@ jobs:
           node-version: '22'
 
       - name: Set up Java (for d8)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -93,14 +93,16 @@ jobs:
           NEED=""
           [ -d "$ANDROID_SDK_ROOT/build-tools/34.0.0" ] || NEED="$NEED build-tools;34.0.0"
           [ -d "$ANDROID_SDK_ROOT/platforms/android-34" ] || NEED="$NEED platforms;android-34"
-          [ -d "$ANDROID_SDK_ROOT/ndk" ] || NEED="$NEED ndk;26.3.11579264"
           if [ -n "$NEED" ]; then
             echo "Installing via sdkmanager:$NEED"
             yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" $NEED >/dev/null
           fi
-          NDK_DIR=$(ls -d "$ANDROID_SDK_ROOT"/ndk/* 2>/dev/null | head -1)
-          echo "Using NDK: $NDK_DIR"
-          echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
+          # gomobile (2026-04 pin) rejects NDK 27 (min API 16, not in 21..35); use NDK r26d which it supports
+          if [ ! -d "$ANDROID_SDK_ROOT/ndk/26.3.11579264" ]; then
+            echo "Installing NDK r26d ..."
+            yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "ndk;26.3.11579264" >/dev/null
+          fi
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.3.11579264" >> "$GITHUB_ENV"
           test -x "$ANDROID_SDK_ROOT/build-tools/34.0.0/d8" && echo "d8 OK"
 
       - name: Build web assets (frps)
