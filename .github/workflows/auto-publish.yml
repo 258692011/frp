@@ -90,8 +90,7 @@ jobs:
           echo "== ndk =="; ls "$ANDROID_SDK_ROOT/ndk" 2>/dev/null || true
           test -x "$ANDROID_SDK_ROOT/build-tools/34.0.0/d8" || { echo "build-tools 34.0.0 missing"; exit 1; }
           test -f "$ANDROID_SDK_ROOT/platforms/android-34/android.jar" || { echo "platform android-34 missing"; exit 1; }
-          # gomobile requires NDK min API >= 21; NDK r26d/r27 report min=16 in platforms.json.
-          # Patch platforms.json min -> 21 (documented gomobile workaround).
+          # gomobile bind uses -androidapi 21 (see Makefile.cross-compiles); NDK r26d supports 21..34
           NDK_DIR="$ANDROID_SDK_ROOT/ndk/26.3.11579264"
           if [ ! -d "$NDK_DIR" ]; then
             echo "Downloading NDK r26d (~700MB) ..."
@@ -102,8 +101,6 @@ jobs:
             mv "$SRC" "$NDK_DIR"
             echo "NDK r26d installed"
           fi
-          jq '.min = 21' "$NDK_DIR/meta/platforms.json" > /tmp/platforms.json && mv /tmp/platforms.json "$NDK_DIR/meta/platforms.json"
-          echo "patched $NDK_DIR/meta/platforms.json min -> 21"
           echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
 
       - name: Build web assets (frps)
