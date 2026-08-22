@@ -200,7 +200,7 @@ export ANDROID_SDK_ROOT="/c/Users/admin/AppData/Local/Android/Sdk"  # Windows Gi
 在 **Linux / macOS shell** 或 **Windows 的 Git Bash** 中执行（推荐）：
 
 ```bash
-cd ~/go/src/github.com/jahen/frp
+cd ~/go/src/github.com/258692011/frp
 
 # 如未配置系统级 ANDROID_SDK_ROOT，需要先在当前 shell 设置一次
 # export ANDROID_SDK_ROOT="/c/Users/admin/AppData/Local/Android/Sdk"
@@ -216,7 +216,7 @@ make -f Makefile.cross-compiles android-aar
 ### 6.2 同时生成多平台二进制 + AAR
 
 ```bash
-cd ~/go/src/github.com/jahen/frp
+cd ~/go/src/github.com/258692011/frp
 make -f Makefile.cross-compiles
 ```
 
